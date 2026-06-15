@@ -12,7 +12,10 @@ let db = {
 
 let expandedJoinRows = new Set();
 let expandedDescriptionRows = new Set();
+let joinPanelFilters = {};
+let joinPanelWidths = {};
 let resizeState = null;
+let activeJoinFilter = null;
 const els = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -32,7 +35,6 @@ function cacheElements() {
   [
     "jsonFile",
     "themeToggle",
-    "clearFilters",
     "filterRow",
     "tableFilter",
     "columnFilter",
@@ -48,10 +50,15 @@ function cacheElements() {
 function bindEvents() {
   els.jsonFile.addEventListener("change", importJsonFile);
   els.themeToggle.addEventListener("click", toggleTheme);
-  els.clearFilters.addEventListener("click", clearFilters);
   [els.tableFilter, els.columnFilter, els.descriptionFilter]
-    .forEach(input => input.addEventListener("input", renderRows));
+    .forEach(input => input.addEventListener("input", () => {
+      updateFilterClearButtons();
+      renderRows();
+    }));
+  els.filterRow.addEventListener("click", handleFilterClearClick);
   els.metadataRows.addEventListener("click", handleMetadataClick);
+  els.metadataRows.addEventListener("input", handleMetadataInput);
+  els.metadataRows.addEventListener("mousedown", startJoinColumnResize);
   document.querySelectorAll(".resize-handle")
     .forEach(handle => handle.addEventListener("mousedown", startColumnResize));
   document.addEventListener("mousemove", resizeColumn);
@@ -71,7 +78,7 @@ function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem(THEME_KEY, theme);
   const isDark = theme === "dark";
-  els.themeToggle.textContent = isDark ? "Light" : "Dark";
+  els.themeToggle.textContent = isDark ? "☀" : "◐";
   els.themeToggle.setAttribute("aria-pressed", String(isDark));
 }
 
@@ -313,6 +320,7 @@ function renderRows() {
 
   els.metadataRows.innerHTML = filtered.map(renderRow).join("");
   updateDescriptionOverflow();
+  restoreJoinFilterFocus();
 
   if (!filtered.length) {
     els.metadataRows.innerHTML = `
@@ -321,6 +329,7 @@ function renderRows() {
       </tr>
     `;
   }
+  updateFilterClearButtons();
 }
 
 function handleMetadataClick(event) {
@@ -347,6 +356,18 @@ function handleMetadataClick(event) {
     }
     renderRows();
   }
+}
+
+function handleMetadataInput(event) {
+  const input = event.target.closest("[data-action='join-filter']");
+  if (!input) return;
+
+  const rowKey = input.dataset.rowKey;
+  const field = input.dataset.field;
+  joinPanelFilters[rowKey] = joinPanelFilters[rowKey] || {};
+  joinPanelFilters[rowKey][field] = input.value;
+  activeJoinFilter = { rowKey, field, cursor: input.selectionStart };
+  renderRows();
 }
 
 function buildRows() {
@@ -387,8 +408,9 @@ function renderRow(row) {
   const descriptionExpanded = expandedDescriptionRows.has(row.rowKey);
   return `
     <tr>
-      <td>${escapeHtml(row.table)}</td>
       <td>${escapeHtml(row.column)}</td>
+      <td>${escapeHtml(row.table)}</td>
+      <td>${renderJoinToggle(row)}</td>
       <td>
         ${row.description ? `
           <button class="description-cell ${descriptionExpanded ? "expanded" : ""}" data-action="toggle-description" data-row-key="${escapeHtml(row.rowKey)}" title="Click to expand description">
@@ -396,7 +418,6 @@ function renderRow(row) {
           </button>
         ` : ""}
       </td>
-      <td>${renderJoins(row.joins)}</td>
     </tr>
     ${expandedJoinRows.has(row.rowKey) ? renderJoinExpansion(row) : ""}
   `;
@@ -418,6 +439,7 @@ function startColumnResize(event) {
   const col = els.metadataTable.querySelectorAll("col")[index];
   const header = event.target.closest("th");
   resizeState = {
+    type: "main",
     col,
     startX: event.clientX,
     startWidth: header.getBoundingClientRect().width
@@ -426,10 +448,35 @@ function startColumnResize(event) {
   event.preventDefault();
 }
 
+function startJoinColumnResize(event) {
+  const handle = event.target.closest("[data-action='resize-join-col']");
+  if (!handle) return;
+
+  const rowKey = handle.dataset.rowKey;
+  const field = handle.dataset.field;
+  const headerCell = handle.parentElement;
+  resizeState = {
+    type: "join",
+    rowKey,
+    field,
+    startX: event.clientX,
+    startWidth: headerCell.getBoundingClientRect().width
+  };
+  document.body.classList.add("resizing");
+  event.preventDefault();
+}
+
 function resizeColumn(event) {
   if (!resizeState) return;
   const nextWidth = Math.max(70, resizeState.startWidth + event.clientX - resizeState.startX);
-  resizeState.col.style.width = `${nextWidth}px`;
+  if (resizeState.type === "join") {
+    joinPanelWidths[resizeState.rowKey] = joinPanelWidths[resizeState.rowKey] || {};
+    joinPanelWidths[resizeState.rowKey][resizeState.field] = nextWidth;
+    const panel = document.querySelector(`.join-panel[data-row-key="${cssEscape(resizeState.rowKey)}"]`);
+    if (panel) panel.style.setProperty(`--join-col-${resizeState.field}`, `${nextWidth}px`);
+  } else {
+    resizeState.col.style.width = `${nextWidth}px`;
+  }
   updateDescriptionOverflow();
 }
 
@@ -440,33 +487,83 @@ function stopColumnResize() {
   updateDescriptionOverflow();
 }
 
-function renderJoins(joins) {
-  if (!joins.length) return "";
-  const first = joins[0];
-  const key = `${first.fromTable}.${first.fromColumn}`;
-  const expanded = expandedJoinRows.has(key);
+function restoreJoinFilterFocus() {
+  if (!activeJoinFilter) return;
+  requestAnimationFrame(() => {
+    const selector = `[data-action="join-filter"][data-row-key="${cssEscape(activeJoinFilter.rowKey)}"][data-field="${activeJoinFilter.field}"]`;
+    const input = document.querySelector(selector);
+    if (input) {
+      input.focus();
+      const cursor = activeJoinFilter.cursor ?? input.value.length;
+      input.setSelectionRange(cursor, cursor);
+    }
+    activeJoinFilter = null;
+  });
+}
+
+function renderJoinToggle(row) {
+  if (!row.joins.length) return "";
+  const expanded = expandedJoinRows.has(row.rowKey);
   return `
-    <button class="join-toggle" data-action="toggle-joins" data-row-key="${escapeHtml(key)}" aria-expanded="${expanded}">
+    <button class="join-toggle" data-action="toggle-joins" data-row-key="${escapeHtml(row.rowKey)}" aria-expanded="${expanded}" title="Show joins">
       ${expanded ? "-" : "+"}
     </button>
-    <span class="join-count">${joins.length}</span>
   `;
 }
 
 function renderJoinExpansion(row) {
+  const filters = joinPanelFilters[row.rowKey] || {};
+  const visibleJoins = row.joins.filter(join => {
+    const targetColumn = db.tables[join.toTable]?.columns?.[join.toColumn];
+    const targetDescription = targetColumn?.description || "";
+    if (filters.column && !join.toColumn.includes(filters.column.trim().toUpperCase())) return false;
+    if (filters.table && !join.toTable.includes(filters.table.trim().toUpperCase())) return false;
+    if (filters.description && !targetDescription.toUpperCase().includes(filters.description.trim().toUpperCase())) return false;
+    return true;
+  });
+  const widths = joinPanelWidths[row.rowKey] || {};
+  const style = [
+    widths.column ? `--join-col-column:${widths.column}px` : "",
+    widths.table ? `--join-col-table:${widths.table}px` : "",
+    widths.description ? `--join-col-description:${widths.description}px` : ""
+  ].filter(Boolean).join(";");
+
   return `
     <tr class="join-expansion">
       <td></td>
-      <td colspan="3">
-        <div class="join-list">
-          ${row.joins.map(join => `
-            <div>
-              <strong>${escapeHtml(join.toTable)}</strong>.<span>${escapeHtml(join.toColumn)}</span>
-            </div>
-          `).join("")}
+      <td></td>
+      <td colspan="2">
+        <div class="join-panel" data-row-key="${escapeHtml(row.rowKey)}" style="${escapeHtml(style)}">
+          <div class="join-panel-header">
+            <span>
+              <input class="join-header-filter" data-action="join-filter" data-row-key="${escapeHtml(row.rowKey)}" data-field="column" value="${escapeHtml(filters.column || "")}" placeholder="Column" />
+              <span class="join-resize-handle" data-action="resize-join-col" data-row-key="${escapeHtml(row.rowKey)}" data-field="column"></span>
+            </span>
+            <span>
+              <input class="join-header-filter" data-action="join-filter" data-row-key="${escapeHtml(row.rowKey)}" data-field="table" value="${escapeHtml(filters.table || "")}" placeholder="Table" />
+              <span class="join-resize-handle" data-action="resize-join-col" data-row-key="${escapeHtml(row.rowKey)}" data-field="table"></span>
+            </span>
+            <span>
+              <input class="join-header-filter" data-action="join-filter" data-row-key="${escapeHtml(row.rowKey)}" data-field="description" value="${escapeHtml(filters.description || "")}" placeholder="Description" />
+              <span class="join-resize-handle" data-action="resize-join-col" data-row-key="${escapeHtml(row.rowKey)}" data-field="description"></span>
+            </span>
+          </div>
+          ${visibleJoins.length ? visibleJoins.map(join => renderJoinTarget(join)).join("") : `<div class="join-target empty-join-target"><span>No matching joins.</span><strong></strong><p></p></div>`}
         </div>
       </td>
     </tr>
+  `;
+}
+
+function renderJoinTarget(join) {
+  const targetColumn = db.tables[join.toTable]?.columns?.[join.toColumn];
+  const targetDescription = targetColumn?.description || "";
+  return `
+    <div class="join-target">
+      <span>${escapeHtml(join.toColumn)}</span>
+      <strong>${escapeHtml(join.toTable)}</strong>
+      <p>${targetDescription ? escapeHtml(targetDescription) : ""}</p>
+    </div>
   `;
 }
 
@@ -475,10 +572,23 @@ function setStatus(message, isError = false) {
   els.status.classList.toggle("error", isError);
 }
 
-function clearFilters() {
-  [els.tableFilter, els.columnFilter, els.descriptionFilter]
-    .forEach(input => input.value = "");
+function handleFilterClearClick(event) {
+  const button = event.target.closest("[data-clear-filter]");
+  if (!button) return;
+
+  const input = document.getElementById(button.dataset.clearFilter);
+  if (!input || !input.value) return;
+  input.value = "";
+  input.focus();
+  updateFilterClearButtons();
   renderRows();
+}
+
+function updateFilterClearButtons() {
+  document.querySelectorAll("[data-clear-filter]").forEach(button => {
+    const input = document.getElementById(button.dataset.clearFilter);
+    button.classList.toggle("visible", Boolean(input?.value));
+  });
 }
 
 function normalize(value) {
@@ -494,6 +604,11 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return CSS.escape(value);
+  return String(value).replace(/["\\]/g, "\\$&");
 }
 
 function splitListValue(value) {

@@ -10,14 +10,13 @@
   <header class="app-header">
     <div>
       <h1>Epic Join Mapper</h1>
-      <p>Search tables, columns, descriptions, and joins from loaded JSON metadata.</p>
     </div>
     <div class="header-actions">
-      <label class="file-loader">
-        Add JSON
+      <label class="file-loader" title="Add JSON" aria-label="Add JSON">
+        <span aria-hidden="true">+</span>
         <input id="jsonFile" type="file" accept=".json,application/json" multiple />
       </label>
-      <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Dark</button>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false" title="Toggle theme" aria-label="Toggle theme"></button>
     </div>
   </header>
 
@@ -27,28 +26,61 @@
         <div id="status" class="status" role="status"></div>
       </div>
 
-      <div id="dataSource" class="data-source"></div>
+      <div id="dataSource" class="data-source" hidden></div>
 
       <div class="metadata-wrap">
         <table class="metadata-table">
           <colgroup>
-            <col data-col="table" />
             <col data-col="column" />
-            <col data-col="description" />
+            <col data-col="table" />
             <col data-col="joins" />
+            <col data-col="description" />
           </colgroup>
           <thead>
             <tr>
-              <th>Table<span class="resize-handle" data-col-index="0"></span></th>
-              <th>Column<span class="resize-handle" data-col-index="1"></span></th>
-              <th>Description<span class="resize-handle" data-col-index="2"></span></th>
-              <th><span class="resize-handle" data-col-index="3"></span></th>
+              <th>Column<span class="resize-handle" data-col-index="0"></span></th>
+              <th>Table<span class="resize-handle" data-col-index="1"></span></th>
+              <th>Joins to<span class="resize-handle" data-col-index="2"></span></th>
+              <th>Description<span class="resize-handle" data-col-index="3"></span></th>
             </tr>
             <tr id="filterRow" class="filter-row">
-              <th><input id="tableFilter" autofocus /></th>
-              <th><input id="columnFilter" /></th>
-              <th><input id="descriptionFilter" /></th>
-              <th><button id="clearFilters" class="filter-toggle inline-clear" type="button">Clear</button></th>
+              <th>
+                <div class="filter-box">
+                  <input id="columnFilter" autofocus />
+                  <button class="filter-clear" type="button" data-clear-filter="columnFilter" title="Clear column filter" aria-label="Clear column filter">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" class="clear-filter-icon">
+                      <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
+                      <circle cx="17" cy="17" r="5" />
+                      <path class="icon-x" d="m15.4 15.4 3.2 3.2m0-3.2-3.2 3.2" />
+                    </svg>
+                  </button>
+                </div>
+              </th>
+              <th>
+                <div class="filter-box">
+                  <input id="tableFilter" />
+                  <button class="filter-clear" type="button" data-clear-filter="tableFilter" title="Clear table filter" aria-label="Clear table filter">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" class="clear-filter-icon">
+                      <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
+                      <circle cx="17" cy="17" r="5" />
+                      <path class="icon-x" d="m15.4 15.4 3.2 3.2m0-3.2-3.2 3.2" />
+                    </svg>
+                  </button>
+                </div>
+              </th>
+              <th></th>
+              <th>
+                <div class="filter-box">
+                  <input id="descriptionFilter" />
+                  <button class="filter-clear" type="button" data-clear-filter="descriptionFilter" title="Clear description filter" aria-label="Clear description filter">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" class="clear-filter-icon">
+                      <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
+                      <circle cx="17" cy="17" r="5" />
+                      <path class="icon-x" d="m15.4 15.4 3.2 3.2m0-3.2-3.2 3.2" />
+                    </svg>
+                  </button>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody id="metadataRows"></tbody>

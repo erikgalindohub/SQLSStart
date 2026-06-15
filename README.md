@@ -15,21 +15,22 @@ Then open `http://localhost:8000`.
 The app shows one large searchable table:
 
 ```text
-Table | Column | Description | Joins
+Column | Table | Joins to | Description
 ```
 
 Typing in the filter fields under the headers filters rows dynamically by table, column, and description.
 
-Use **Clear** in the rightmost filter cell to empty all filter fields.
+Each filter field shows a small clear icon when it has text. That icon clears only that filter.
 
 Descriptions are shortened by default. Click a description cell to expand or collapse it.
 Only descriptions that overflow one line are clickable. Table columns can be resized by dragging the divider in the header.
 
-Rows with joins show a small `+` in the Joins column. Click it to expand the destination tables and columns.
+Rows with joins show a small `+` on the left. Click it to show a plain-language list of destination tables and columns.
+Expanded join lists have searchable headers and resizable columns.
 
-Use **Add JSON** to merge in more metadata files. If an uploaded JSON contains a table already loaded, that table is replaced with the uploaded version.
+Use the `+` button to merge in more metadata files. If an uploaded JSON contains a table already loaded, that table is replaced with the uploaded version.
 
-Use **Dark** / **Light** in the header to toggle the theme. The choice is saved in browser `localStorage`.
+Use the theme button in the header to toggle dark/light mode. The choice is saved in browser `localStorage`.
 
 ## Expected JSON Shape
 
