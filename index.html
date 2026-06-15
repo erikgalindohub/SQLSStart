@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epic Join Mapper</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Epic Join Mapper</h1>
+      <p>Search tables, columns, descriptions, and joins from loaded JSON metadata.</p>
+    </div>
+    <div class="header-actions">
+      <label class="file-loader">
+        Add JSON
+        <input id="jsonFile" type="file" accept=".json,application/json" multiple />
+      </label>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Dark</button>
+    </div>
+  </header>
+
+  <main class="single-layout">
+    <section class="panel">
+      <div class="toolbar">
+        <div id="status" class="status" role="status"></div>
+      </div>
+
+      <div id="dataSource" class="data-source"></div>
+
+      <div class="metadata-wrap">
+        <table class="metadata-table">
+          <colgroup>
+            <col data-col="table" />
+            <col data-col="column" />
+            <col data-col="description" />
+            <col data-col="joins" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Table<span class="resize-handle" data-col-index="0"></span></th>
+              <th>Column<span class="resize-handle" data-col-index="1"></span></th>
+              <th>Description<span class="resize-handle" data-col-index="2"></span></th>
+              <th><span class="resize-handle" data-col-index="3"></span></th>
+            </tr>
+            <tr id="filterRow" class="filter-row">
+              <th><input id="tableFilter" autofocus /></th>
+              <th><input id="columnFilter" /></th>
+              <th><input id="descriptionFilter" /></th>
+              <th><button id="clearFilters" class="filter-toggle inline-clear" type="button">Clear</button></th>
+            </tr>
+          </thead>
+          <tbody id="metadataRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
